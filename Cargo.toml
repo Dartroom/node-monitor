@@ -1,0 +1,19 @@
+[package]
+name = "node-monitor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "4.3.0"
+slog = "2.7.0"
+slog-term = "2.9.0"
+slog-async = "2.7.0"
+config = {version = "0.13.3",features = ["json"]}
+serde_json = "1.0.93"
+serde = "1.0.152"
+tokio = "1.25.0"
+chrono = "0.4.23"
+
+
