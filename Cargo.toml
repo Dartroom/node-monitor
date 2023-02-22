@@ -17,7 +17,9 @@ tokio = "1.25.0"
 chrono = "0.4.23"
 reqwest = {version = "0.11.14", features = ["json"] }
 anyhow = "1.0.69"
+
 lazy_static = "1.4.0"
+futures = "0.3.26"
 [target.x86_64-unknown-linux-musl.dependencies]
 openssl = { version = "*", features = ["vendored"] } 
 

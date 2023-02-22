@@ -39,7 +39,11 @@ async fn get_health(
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let log = logger::configure_log();
-    let config = utils::get_settings().expect("failed to parse config.json");
+    let path = std::env::args().nth(1);
+    println!("{:#?}", &path);
+    let config = utils::get_settings(path.clone()).expect("failed to parse configuration file");
+    let args: Vec<_> = std::env::args().collect();
+
     //let now: Mutex<Instant> = Mutex::new(Instant::now());
 
     let port = config.port;
@@ -49,8 +53,8 @@ async fn main() -> std::io::Result<()> {
         move || async move {
             // send a request to our node to check status;
             // Check the last round value to see if it increased;
-
-            let config = utils::get_settings().expect("failed to get settings");
+            let path = std::env::args().nth(1);
+            let config = utils::get_settings(path).expect("failed to get settings");
             //let n =  now.lock();
 
             utils::fetch_data(&config)

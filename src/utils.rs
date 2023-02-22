@@ -9,6 +9,7 @@ use std::{
 };
 use tokio::time::{self, Duration};
 
+use futures::future::join_all;
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MonitorSettings {
@@ -86,11 +87,15 @@ pub struct Payload {
 
 /* build the setting struct from  */
 
-pub fn get_settings() -> Result<MonitorSettings> {
+pub fn get_settings(path: Option<String>) -> Result<MonitorSettings> {
     // check if the config.json file exists if not, create a new
-
+    let file_path = if let Some(right) = path {
+        right
+    } else {
+        "settings.json".to_string()
+    };
     let settings = Config::builder()
-        .add_source(File::new("settings.json", FileFormat::Json5))
+        .add_source(File::new(&file_path, FileFormat::Json5))
         .build()?;
 
     let result = settings.try_deserialize::<MonitorSettings>()?;
@@ -154,18 +159,26 @@ pub async fn fetch_data(settings: &MonitorSettings) -> Result<()> {
             resp
         }
     };
-    println!("fetching from remote node: {}", settings.cluster_nodes[0]);
-    // we  want to fetch data from all remote nodes, the chosen one is the one with highest last_round;
-    let remote_nodes: Vec<_> = settings
-        .cluster_nodes
-        .iter()
-        .map(|s| async {
-            get_data(s, &client).await;
-        })
-        .collect();
-    let remote: NodeResponse = get_data(&settings.cluster_nodes[0], &client).await?;
 
-    let local_data = save_data(local, remote);
+    // we  want to fetch data from all remote nodes, the chosen one is the one with highest last_round;
+    let remote_nodes = join_all(settings.cluster_nodes.iter().map(|s| get_data(s, &client))).await;
+
+    // use the most update node as the remote node;
+    let most_update_node = remote_nodes
+        .into_iter()
+        .filter(|e| !e.is_err())
+        .max_by_key(|x| x.as_ref().unwrap().last_round);
+
+    if let Some(node) = most_update_node {
+        if node.is_ok() {
+            let d = node.unwrap();
+            println!("fetching from remote active remote");
+            //let remote: NodeResponse = get_data(&, &client).await?;
+
+            let local_data = save_data(local, d, settings);
+        }
+    }
+    //
 
     //println!("{}", local.last_round == remote.last_round);
     //println!("{:#?}", local_data);
@@ -181,7 +194,11 @@ async fn get_data(url: &str, client: &Client) -> Result<NodeResponse, reqwest::E
     client.get(url).send().await?.json().await
 }
 
-pub fn save_data(resp: NodeResponse, remote_res: NodeResponse) -> Result<Payload> {
+pub fn save_data(
+    resp: NodeResponse,
+    remote_res: NodeResponse,
+    global: &MonitorSettings,
+) -> Result<Payload> {
     use std::fs;
     use std::path::Path;
     //  read the process directory and check for data.json file;
@@ -198,27 +215,34 @@ pub fn save_data(resp: NodeResponse, remote_res: NodeResponse) -> Result<Payload
         .build()?;
 
     let mut store = settings.try_deserialize::<Payload>()?;
+    // use  the config setting to fetch the remotes;
 
     // if both the store data and local node data is the same, we update the local data;
     if resp.last_round == store.local_last_round {
         // if the file data is the same after a round, we update
-        store.status = Status::Stopped;
-        store.offset = remote_res.last_round - store.local_last_round;
-        store.local_last_round = remote_res.last_round;
-        // update the time when file is out of sync;
-        let time = Utc::now();
-        store.time_stamp = Some(time.to_string());
+
+        let offset = remote_res.last_round - store.local_last_round;
+        if offset > global.valid_round_range {
+            store.status = Status::Stopped;
+            store.offset = offset;
+            store.local_last_round = remote_res.last_round;
+            // update the time when file is out of sync;
+            let time = Utc::now();
+            store.time_stamp = Some(time.to_string());
+        }
 
         // do nothing  the data is synced with the remote
     } else {
         // if the data is different, save the local;
         //store.status = Status::Stopped;
+        let offset = remote_res.last_round - resp.last_round;
         if remote_res.last_round == resp.last_round {
             store.status = Status::Synced;
-            store.offset = remote_res.last_round - resp.last_round;
+            store.offset = offset;
             store.time_stamp = None;
             store.remote_last_round = remote_res.last_round;
-        } else {
+        }
+        if (offset > global.valid_round_range) {
             store.status = Status::CatchingUp;
             store.offset = remote_res.last_round - resp.last_round;
             let time = Utc::now();
