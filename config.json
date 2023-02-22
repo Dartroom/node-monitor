@@ -1,9 +1,0 @@
-{
-	"polling_rate": 10,
-	"x_algo_token": "",
-	"valid_round_range": 0,
-	"local_node": "",
-	"cluster_nodes": [ "", ""],
-	"port": 9030,
-	"node_port": 9094
-}

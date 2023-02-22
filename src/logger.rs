@@ -1,4 +1,3 @@
-
 pub use slog::{info, o, Drain, Logger};
 
 pub fn configure_log() -> Logger {
