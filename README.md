@@ -3,12 +3,13 @@
 This is simple program that monitor the state of a local node and reports whether it's synced, catching up or has stopped syncing.
 
 ### Requirements
-
--    Rust (version 1.49 and above)
+1. Building from Source
+-  Rust (version 1.49 and above);
+-  musl-tools, libssl-dev for linux
 
 ### Usage
 
-1. Download the binaries here
+1. Download the binaries [here](https://github.com/Dartroom/node-monitor/releases/)
 2. create a settings.json file (see example below)
 
 ```json
