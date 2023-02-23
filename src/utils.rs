@@ -94,8 +94,9 @@ pub fn get_settings(path: Option<String>) -> Result<MonitorSettings> {
     } else {
         "settings.json".to_string()
     };
+    println!("{:?}", file_path);
     let settings = Config::builder()
-        .add_source(File::new(&file_path, FileFormat::Json5))
+        .add_source(File::with_name(&file_path))
         .build()?;
 
     let result = settings.try_deserialize::<MonitorSettings>()?;
