@@ -1,4 +1,4 @@
-#![allow(dead_code, unused)]
+#![allow(dead_code, unused, non_snake_case)]
 use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use slog::Logger;
 mod logger;
@@ -7,6 +7,19 @@ use anyhow::Result;
 use logger::*;
 // import a mutex
 use std::{sync::Mutex, time::Instant};
+// setup cli tool using clap
+
+use clap::Parser;
+#[derive(Parser, Debug,Clone)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// path to the  configuration file (default: if not specified, settings.json file in same directory as executable is used)
+    #[arg(short, long)]
+    config: Option<String>,
+    /// The path to store the data.json file (default is same directory as executable)
+    #[arg(short, long)]
+    pub data_dir: Option<String>,
+}
 
 #[get("/health")]
 async fn get_health(
@@ -38,11 +51,14 @@ async fn get_health(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let args = Cli::parse();
+    // println!("{:?}", args);
     let log = logger::configure_log();
-    let path = std::env::args().nth(1);
-    println!("{:#?}", &path);
+    let path = args.config;
+    let data_dir = args.data_dir;
+    //println!("{:#?}", &path);
     let config = utils::get_settings(path.clone()).expect("failed to parse configuration file");
-    let args: Vec<_> = std::env::args().collect();
+    //let args: Vec<_> = std::env::args().collect();
 
     //let now: Mutex<Instant> = Mutex::new(Instant::now());
 
@@ -53,14 +69,16 @@ async fn main() -> std::io::Result<()> {
         move || async move {
             // send a request to our node to check status;
             // Check the last round value to see if it increased;
-            let path = std::env::args().nth(1);
+            let args = Cli::parse();
+            let path = args.config;
             let config = utils::get_settings(path).expect("failed to get settings");
+             let log = logger::configure_log();
             //let n =  now.lock();
 
             utils::fetch_data(&config)
                 .await
                 .expect("failed to fron nodes");
-            println!("fetching data every {:?} seconds...", config.polling_rate);
+             info!(log,"fetching data every {:?} seconds...", config.polling_rate);
             // println!("{:?}", utils::get::<String>("foo"));
         },
         std::time::Duration::from_secs(config.polling_rate),
