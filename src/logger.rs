@@ -1,4 +1,4 @@
-pub use slog::{info, o, trace, warn, Drain, Logger};
+pub use slog::{info, o, slog_error,error,trace, warn, Drain, Logger};
 
 pub fn configure_log() -> Logger {
     let decorator = slog_term::TermDecorator::new().build();

@@ -2,24 +2,26 @@ use crate::cli::*;
 use crate::logger::*;
 use crate::utils::*;
 use crate::utils::*;
-
+use anyhow::*;
 pub fn poll(config: &MonitorSettings) {
     set_interval(
-        move || async move {
+        move || async {
             // send a request to our node to check status;
             // Check the last round value to see if it increased;
             let args = ARGS.clone();
             let path = args.config;
-            let config = get_settings(path).expect("failed to get settings");
             let log = LOGGER.clone();
-            //let n =  now.lock();
+            let config = get_settings(path.clone())
+                .with_context(|| format!("Failed to read configuration settings from {:?}", path));
 
-            fetch_data(&config, args.data_dir)
+            //let n =  now.lock();
+            let result = config.unwrap();
+            fetch_data(&result, args.data_dir)
                 .await
-                .expect("failed to fron nodes");
+                .with_context(|| "fetching error");
             info!(
                 log,
-                "fetching data every {:?} seconds...", config.polling_rate
+                "fetching data every {:?} seconds...", &result.polling_rate
             );
             // println!("{:?}", utils::get::<String>("foo"));
         },

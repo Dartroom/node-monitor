@@ -3,6 +3,7 @@ use actix_web::{web, App, HttpServer};
 mod logger;
 mod polling;
 mod utils;
+
 use logger::*;
 mod cli;
 mod response;
@@ -21,24 +22,31 @@ async fn main() -> std::io::Result<()> {
     let log = LOGGER.clone();
 
     //println!("{:#?}", &path);
-    let config =
-        utils::get_settings(ARGS.clone().config).expect("failed to parse configuration file");
+    let c = utils::get_settings(ARGS.clone().config);
     //let args: Vec<_> = std::env::args().collect();
+    if c.is_err() {
+        let err = c.unwrap_err();
 
-    //let now: Mutex<Instant> = Mutex::new(Instant::now());
-    let port = config.port;
-    // polling  for config.polling_rate
-    poll(&config);
+        //eprintln!("{:?}", err.source());
+        eprint!("{:?}", err);
+        Ok(())
+    } else {
+        let config = c.unwrap();
+        //let now: Mutex<Instant> = Mutex::new(Instant::now());
+        let port = config.port;
+        // polling  for config.polling_rate
+        poll(&config);
 
-    info!(log, "Starting the server at http://127.0.0.1:{port}/health");
-    HttpServer::new(move || {
-        App::new()
-            .app_data(LOGGER.clone())
-            .app_data(web::Data::new(config.clone()))
-            .app_data(ARGS.clone().data_dir)
-            .service(get_health)
-    })
-    .bind(("127.0.0.1", port as u16))?
-    .run()
-    .await
+        info!(log, "Starting the server at http://127.0.0.1:{port}/health");
+        HttpServer::new(move || {
+            App::new()
+                .app_data(LOGGER.clone())
+                .app_data(web::Data::new(config.clone()))
+                .app_data(ARGS.clone().data_dir)
+                .service(get_health)
+        })
+        .bind(("127.0.0.1", port as u16))?
+        .run()
+        .await
+    }
 }

@@ -1,13 +1,10 @@
-use anyhow::Result;
+use crate::logger::*;
+use anyhow::{Context, Result};
 use chrono::prelude::*;
 use config::{Config, File, FileFormat};
 use reqwest::{header, Client};
 use serde::{Deserialize, Serialize};
-use std::{
-    future::Future,
-   
-};
-use crate::logger::*;
+use std::future::Future;
 
 use tokio::time::{self, Duration};
 
@@ -89,7 +86,7 @@ pub struct Payload {
 
 /* build the setting struct from  */
 
-pub fn get_settings(path: Option<String>) -> Result<MonitorSettings> {
+pub fn get_settings(path: Option<String>) -> anyhow::Result<MonitorSettings> {
     // check if the config.json file exists if not, create a new
     let file_path = if let Some(right) = path {
         right
@@ -99,7 +96,8 @@ pub fn get_settings(path: Option<String>) -> Result<MonitorSettings> {
     //println!("{:?}", file_path);
     let settings = Config::builder()
         .add_source(File::with_name(&file_path))
-        .build()?;
+        .build()
+        .with_context(|| format!("failed to load configuration file: {} ", &file_path))?;
 
     let result = settings.try_deserialize::<MonitorSettings>()?;
     //println!("{:#?}", result);
@@ -128,7 +126,10 @@ where
 // Throughout the settings structure -> create functions
 // node-aws
 
-pub async fn fetch_data(settings: &MonitorSettings,dir:Option<String>) -> Result<()> {
+pub async fn fetch_data(
+    settings: &MonitorSettings,
+    dir: Option<String>,
+) -> Result<(), anyhow::Error> {
     use std::fs::File;
     // add access Token;
     let mut headers = header::HeaderMap::new();
@@ -152,15 +153,19 @@ pub async fn fetch_data(settings: &MonitorSettings,dir:Option<String>) -> Result
     if let Some(node) = most_update_node {
         if node.is_ok() {
             let d = node.unwrap();
-            println!("fetching from remote active remote");
+            info!(LOGGER, "fetching from remote active remote");
             //let remote: NodeResponse = get_data(&, &client).await?;
-            println!("fetching from local node: {}", settings.local_node);
+            info!(LOGGER, "fetching from local node: {}", settings.local_node);
 
             let local = match get_data(&settings.local_node, &client).await {
                 Ok(local) => local,
                 Err(e) => {
+                    warn!(
+                        LOGGER,
+                        "Failed to fetch from local node: {}, status changing", settings.local_node
+                    );
                     // error, update the setting to stopped;
-                    let mut store = load_from_store(dir)?;
+                    let mut store = load_from_store(dir.clone())?;
 
                     store.status = Status::Stopped;
                     // store.local_last_round = store.local_last_round;
@@ -181,7 +186,7 @@ pub async fn fetch_data(settings: &MonitorSettings,dir:Option<String>) -> Result
                 }
             };
 
-            let local_data = save_data(local, d, settings);
+            let local_data = save_data(local, d, settings, dir);
         }
     }
     //
@@ -204,20 +209,27 @@ pub fn save_data(
     resp: NodeResponse,
     remote_res: NodeResponse,
     global: &MonitorSettings,
+    dir: Option<String>,
 ) -> Result<Payload> {
     use std::fs;
     use std::path::Path;
+    let file_path = if let Some(right) = dir {
+        format!("{right}/{}", "data.json")
+    } else {
+        "data.json".to_string()
+    };
     //  read the process directory and check for data.json file;
-    let data_file_exists = Path::new("data.json").exists();
+    //println!("{}", file_path);
+    let data_file_exists = Path::new(&file_path).exists();
 
     if (!data_file_exists) {
-        println!("no data.json file, creatting one");
-        let mut f = fs::File::create("data.json")?;
+        info!(LOGGER, "no data.json file, creating one");
+        let mut f = fs::File::create(&file_path)?;
         serde_json::to_writer_pretty(f, &Payload::default())?;
     }
 
     let settings = Config::builder()
-        .add_source(File::new("data.json", FileFormat::Json))
+        .add_source(File::with_name(&file_path))
         .build()?;
 
     let mut store = settings.try_deserialize::<Payload>()?;
@@ -263,7 +275,7 @@ pub fn save_data(
 
         // update the data file
         //let now = time::Instant::now();
-        let mut f = fs::File::create("data.json")?;
+        let mut f = fs::File::create(&file_path)?;
         serde_json::to_writer_pretty(f, &store)?;
         //println!("{:?}", now.elapsed());
     }
@@ -280,6 +292,7 @@ pub fn load_from_store(dir: Option<String>) -> Result<Payload> {
     } else {
         "data.json".to_string()
     };
+    //println!("Loading data from:{file_path}");
     let settings = Config::builder()
         .add_source(File::with_name(&file_path))
         .build()?;
