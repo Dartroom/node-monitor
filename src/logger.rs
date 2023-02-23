@@ -1,4 +1,4 @@
-pub use slog::{info, o, Drain, Logger};
+pub use slog::{info, o, trace, warn, Drain, Logger};
 
 pub fn configure_log() -> Logger {
     let decorator = slog_term::TermDecorator::new().build();
@@ -9,4 +9,8 @@ pub fn configure_log() -> Logger {
 
     // Root logger
     slog::Logger::root(console_drain, o!("v"=>env!("CARGO_PKG_VERSION")))
+}
+
+lazy_static! {
+    pub static ref LOGGER: Logger = configure_log();
 }

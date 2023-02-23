@@ -5,8 +5,10 @@ use reqwest::{header, Client};
 use serde::{Deserialize, Serialize};
 use std::{
     future::Future,
-    io::{Read, Seek},
+   
 };
+
+
 use tokio::time::{self, Duration};
 
 use futures::future::join_all;
@@ -94,7 +96,7 @@ pub fn get_settings(path: Option<String>) -> Result<MonitorSettings> {
     } else {
         "settings.json".to_string()
     };
-    println!("{:?}", file_path);
+    //println!("{:?}", file_path);
     let settings = Config::builder()
         .add_source(File::with_name(&file_path))
         .build()?;
@@ -104,7 +106,7 @@ pub fn get_settings(path: Option<String>) -> Result<MonitorSettings> {
     Ok(result)
 }
 
-pub fn set_interval<F, Fut>(mut f: F, dur: Duration)
+pub fn set_interval<F, Fut>(f: F, dur: Duration)
 where
     F: Send + 'static + Fn() -> Fut,
     Fut: Future<Output = ()> + Send + 'static,
@@ -126,7 +128,7 @@ where
 // Throughout the settings structure -> create functions
 // node-aws
 
-pub async fn fetch_data(settings: &MonitorSettings) -> Result<()> {
+pub async fn fetch_data(settings: &MonitorSettings,dir:Option<String>) -> Result<()> {
     use std::fs::File;
     // add access Token;
     let mut headers = header::HeaderMap::new();
@@ -137,29 +139,6 @@ pub async fn fetch_data(settings: &MonitorSettings) -> Result<()> {
 
     // use the config setting to fetch the remote node;
     let client = Client::builder().default_headers(headers).build()?;
-    println!("fetching from local node: {}", settings.local_node);
-
-    let local = match get_data(&settings.local_node, &client).await {
-        Ok(local) => local,
-        Err(e) => {
-            // error, update the setting to stopped;
-            let mut store = load_from_store()?;
-
-            store.status = Status::Stopped;
-            // store.local_last_round = store.local_last_round;
-
-            // update the time when file is out of sync;
-            let time = Utc::now();
-            store.time_stamp = Some(time.to_string());
-            let mut f = File::create("data.json")?;
-            serde_json::to_writer_pretty(f, &store)?;
-
-            let mut resp = NodeResponse::default();
-            resp.last_round += store.local_last_round;
-
-            resp
-        }
-    };
 
     // we  want to fetch data from all remote nodes, the chosen one is the one with highest last_round;
     let remote_nodes = join_all(settings.cluster_nodes.iter().map(|s| get_data(s, &client))).await;
@@ -175,6 +154,32 @@ pub async fn fetch_data(settings: &MonitorSettings) -> Result<()> {
             let d = node.unwrap();
             println!("fetching from remote active remote");
             //let remote: NodeResponse = get_data(&, &client).await?;
+            println!("fetching from local node: {}", settings.local_node);
+
+            let local = match get_data(&settings.local_node, &client).await {
+                Ok(local) => local,
+                Err(e) => {
+                    // error, update the setting to stopped;
+                    let mut store = load_from_store(dir)?;
+
+                    store.status = Status::Stopped;
+                    // store.local_last_round = store.local_last_round;
+                    // use the remote_round from the remote node;
+                    store.remote_last_round = d.last_round;
+
+                    // update the time when file is out of sync;
+                    let time = Utc::now();
+                    store.time_stamp = Some(time.to_string());
+                    let mut f = File::create("data.json")?;
+                    serde_json::to_writer_pretty(f, &store)?;
+
+                    let mut resp = NodeResponse::default();
+                    resp.last_round += store.local_last_round;
+                    // set  the last_round to the remote last round
+
+                    resp
+                }
+            };
 
             let local_data = save_data(local, d, settings);
         }
@@ -267,9 +272,16 @@ pub fn save_data(
 }
 
 // load the data from store;
-pub fn load_from_store() -> Result<Payload> {
+pub fn load_from_store(dir: Option<String>) -> Result<Payload> {
+    // if directory path it p
+
+    let file_path = if let Some(right) = dir {
+        format!("{right}/{}", "data.json")
+    } else {
+        "data.json".to_string()
+    };
     let settings = Config::builder()
-        .add_source(File::new("data.json", FileFormat::Json5))
+        .add_source(File::with_name(&file_path))
         .build()?;
 
     let mut store = settings.try_deserialize::<Payload>()?;
