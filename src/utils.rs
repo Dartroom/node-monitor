@@ -149,20 +149,21 @@ pub async fn fetch_data(
         .into_iter()
         .filter(|e| !e.is_err())
         .max_by_key(|x| x.as_ref().unwrap().last_round);
-
+    let mut remote_connection = true;
     if let Some(node) = most_update_node {
         if node.is_ok() {
             let d = node.unwrap();
             info!("fetching from remote active remote");
             //let remote: NodeResponse = get_data(&, &client).await?;
-            info!( "fetching from local node: {}", settings.local_node);
-
+            info!("fetching from local node: {}", settings.local_node);
+            let mut local_connection = true;
             let local = match get_data(&settings.local_node, &client).await {
                 Ok(local) => local,
                 Err(e) => {
+                    local_connection = false;
                     warn!(
-                        
-                        "Failed to fetch from local node: {}, status changing", settings.local_node
+                        "Failed to fetch from local node: {}, status changing",
+                        settings.local_node
                     );
                     // error, update the setting to stopped;
                     let mut store = load_from_store(dir.clone())?;
@@ -170,12 +171,18 @@ pub async fn fetch_data(
                     store.status = Status::Stopped;
                     // store.local_last_round = store.local_last_round;
                     // use the remote_round from the remote node;
+                    let off = d.last_round - store.local_last_round;
                     store.remote_last_round = d.last_round;
-
+                    store.offset = off;
                     // update the time when file is out of sync;
                     let time = Utc::now();
                     store.time_stamp = Some(time.to_string());
-                    let mut f = File::create("data.json")?;
+                    let file_path = if let Some(right) = dir.clone() {
+                        format!("{right}/{}", "data.json")
+                    } else {
+                        "data.json".to_string()
+                    };
+                    let mut f = File::create(file_path)?;
                     serde_json::to_writer_pretty(f, &store)?;
 
                     let mut resp = NodeResponse::default();
@@ -185,8 +192,8 @@ pub async fn fetch_data(
                     resp
                 }
             };
-
-            let local_data = save_data(local, d, settings, dir);
+            info!("local node is connected: {:?},{local:?}", local_connection);
+            let local_data = save_data(local, d, settings, dir, local_connection);
         }
     }
     //
@@ -210,6 +217,7 @@ pub fn save_data(
     remote_res: NodeResponse,
     global: &MonitorSettings,
     dir: Option<String>,
+    local_connection: bool,
 ) -> Result<Payload> {
     use std::fs;
     use std::path::Path;
@@ -223,7 +231,7 @@ pub fn save_data(
     let data_file_exists = Path::new(&file_path).exists();
 
     if (!data_file_exists) {
-        info!( "no data.json file, creating one");
+        info!("no data.json file, creating one");
         let mut f = fs::File::create(&file_path)?;
         serde_json::to_writer_pretty(f, &Payload::default())?;
     }
@@ -236,47 +244,59 @@ pub fn save_data(
     // use  the config setting to fetch the remotes;
 
     // if both the store data and local node data is the same, we update the local data;
-    if resp.last_round == store.local_last_round {
+    debug!("{} =={}", resp.last_round, store.local_last_round);
+    if resp.last_round == store.local_last_round || !local_connection {
+        let offset = store.offset;
         // if the file data is the same after a round, we update
-
-        let offset = remote_res.last_round - store.local_last_round;
+        debug!(" localOffset: {offset}");
         if offset > global.valid_round_range {
+            // update the time once
+            if (store.time_stamp.is_none() && store.status != Status::Stopped) {
+                let time = Utc::now();
+                store.time_stamp = Some(time.to_string());
+            }
             store.status = Status::Stopped;
-            store.offset = offset;
-            store.local_last_round = remote_res.last_round;
+            store.offset = remote_res.last_round - store.local_last_round;
+            store.local_last_round = resp.last_round;
             // update the time when file is out of sync;
-            let time = Utc::now();
-            store.time_stamp = Some(time.to_string());
-        }
 
+            store.time_since_last = resp.time_since_last_round;
+            store.remote_last_round = remote_res.last_round;
+            update_store(&store, file_path)?;
+        } else {
+            // dothin
+        }
         // do nothing  the data is synced with the remote
     } else {
         // if the data is different, save the local;
         //store.status = Status::Stopped;
+        debug!("{} =={}", resp.last_round, store.local_last_round);
         let offset = remote_res.last_round - resp.last_round;
         if remote_res.last_round == resp.last_round {
             store.status = Status::Synced;
             store.offset = offset;
             store.time_stamp = None;
             store.remote_last_round = remote_res.last_round;
+            store.time_since_last = resp.time_since_last_round;
+            // store.remote_last_round = remote_res.last_round;
+            update_store(&store, file_path.clone())?;
         }
-        if (offset > global.valid_round_range) {
+        if (resp.last_round > store.local_last_round && local_connection) {
             store.status = Status::CatchingUp;
             store.offset = remote_res.last_round - resp.last_round;
-            let time = Utc::now();
-            store.time_stamp = Some(time.to_string());
-        }
+            //let time = Utc::now();
+            // store.time_stamp = Some(time.to_string());
+            store.time_stamp = None;
+            store.local_last_round = resp.last_round;
+            store.time_since_last = resp.time_since_last_round;
+            store.remote_last_round = remote_res.last_round;
 
-        store.local_last_round = resp.last_round;
-        store.time_since_last = resp.time_since_last_round;
-        store.remote_last_round = remote_res.last_round;
-        // when node starts sync
-        // write the change to the out data;
+            update_store(&store, file_path)?;
+        }
 
         // update the data file
         //let now = time::Instant::now();
-        let mut f = fs::File::create(&file_path)?;
-        serde_json::to_writer_pretty(f, &store)?;
+
         //println!("{:?}", now.elapsed());
     }
 
@@ -299,4 +319,11 @@ pub fn load_from_store(dir: Option<String>) -> Result<Payload> {
 
     let mut store = settings.try_deserialize::<Payload>()?;
     Ok(store)
+}
+
+fn update_store(store: &Payload, dir: String) -> Result<()> {
+    use std::fs;
+    let mut f = fs::File::create(dir)?;
+    serde_json::to_writer_pretty(f, &store)?;
+    Ok(())
 }

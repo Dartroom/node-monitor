@@ -21,7 +21,7 @@ extern crate lazy_static;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("RUST_LOG", "node_monitor");
     env_logger::init();
     //env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
     // println!("{:?}", args);
