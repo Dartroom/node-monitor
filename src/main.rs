@@ -1,8 +1,10 @@
-#![allow(dead_code, unused, non_snake_case)]
+#![allow(dead_code, unused, non_snake_case, non_camel_case_types)]
 use actix_web::{
     middleware::{Compress, Logger},
     web, App, HttpServer,
 };
+use serde::{Deserialize, Serialize};
+use std::fmt::format;
 mod logger;
 mod polling;
 mod utils;
@@ -21,9 +23,20 @@ extern crate lazy_static;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "node_monitor");
-    env_logger::init();
-    //env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
+    let log_level = if ARGS.clone().verbose {
+        "trace"
+    } else {
+        "info"
+    };
+
+    //std::env::set_var("RUST_LOG", "node_monitor=info");
+    //std::env::set_var("RUST_TRACE", "1");
+    //env_logger::init();
+
+    env_logger::init_from_env(
+        env_logger::Env::new()
+            .default_filter_or(&format!("actix_web={log_level},node_monitor={log_level}")),
+    );
     // println!("{:?}", args);
     //let log = LOGGER.clone();
 
@@ -55,7 +68,7 @@ async fn main() -> std::io::Result<()> {
                 .wrap(Logger::default())
                 .service(get_health)
         })
-        .bind(("127.0.0.1", port as u16))?
+        .bind(("127.0.0.1", port))?
         .run()
         .await
     }

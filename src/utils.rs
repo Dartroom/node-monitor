@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use chrono::prelude::*;
 use config::{Config, File, FileFormat};
 use reqwest::{header, Client};
-use serde::{Deserialize, Serialize};
+ use serde::{Deserialize, Serialize};
 use std::future::Future;
 
 use tokio::time::{self, Duration};
@@ -17,8 +17,8 @@ pub struct MonitorSettings {
     pub valid_round_range: i64,
     pub local_node: String,         // remote address of the some remote
     pub cluster_nodes: Vec<String>, // the other node;
-    pub port: u64,
-    pub node_port: u64,
+    pub port: u16,
+    pub node_port: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -192,7 +192,7 @@ pub async fn fetch_data(
                     resp
                 }
             };
-            info!("local node is connected: {:?},{local:?}", local_connection);
+            info!("local node is connected: {local_connection:#?}");
             let local_data = save_data(local, d, settings, dir, local_connection);
         }
     }
@@ -244,17 +244,18 @@ pub fn save_data(
     // use  the config setting to fetch the remotes;
 
     // if both the store data and local node data is the same, we update the local data;
-    debug!("{} =={}", resp.last_round, store.local_last_round);
-    if resp.last_round == store.local_last_round || !local_connection {
-        let offset = store.offset;
+
+    if (resp.last_round == store.local_last_round && remote_res.last_round > resp.last_round) || !local_connection {
+        let offset  = remote_res.last_round - resp.last_round;
         // if the file data is the same after a round, we update
+            debug!("{} =={}", resp.last_round, store.local_last_round);
         debug!(" localOffset: {offset}");
         if offset > global.valid_round_range {
             // update the time once
             if (store.time_stamp.is_none() && store.status != Status::Stopped) {
                 let time = Utc::now();
                 store.time_stamp = Some(time.to_string());
-            }
+            } else {};
             store.status = Status::Stopped;
             store.offset = remote_res.last_round - store.local_last_round;
             store.local_last_round = resp.last_round;
@@ -270,9 +271,10 @@ pub fn save_data(
     } else {
         // if the data is different, save the local;
         //store.status = Status::Stopped;
-        debug!("{} =={}", resp.last_round, store.local_last_round);
+      
         let offset = remote_res.last_round - resp.last_round;
         if remote_res.last_round == resp.last_round {
+              debug!("remote {} == local {}", resp.last_round, remote_res.last_round);
             store.status = Status::Synced;
             store.offset = offset;
             store.time_stamp = None;
