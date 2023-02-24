@@ -14,7 +14,7 @@ pub struct Cli {
     /// The path to store the data.json file (default is same directory as executable)
     #[arg(short, long)]
     pub data_dir: Option<String>,
-    /// shown more logging information, default is true,
+    /// shown more logging information, default is false with log level=info,
     #[arg(short, long)]
     pub verbose: bool,
 }
