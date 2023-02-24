@@ -1,5 +1,6 @@
-pub use slog::{info, o, slog_error,error,trace, warn, Drain, Logger};
-
+pub use slog::{ o, slog_error, Drain, Logger};
+pub use log::{info,trace,warn,error,debug};
+/* 
 pub fn configure_log() -> Logger {
     let decorator = slog_term::TermDecorator::new().build();
     let console_drain = slog_term::FullFormat::new(decorator).build().fuse();
@@ -14,3 +15,5 @@ pub fn configure_log() -> Logger {
 lazy_static! {
     pub static ref LOGGER: Logger = configure_log();
 }
+
+*/

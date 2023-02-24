@@ -10,7 +10,7 @@ pub fn poll(config: &MonitorSettings) {
             // Check the last round value to see if it increased;
             let args = ARGS.clone();
             let path = args.config;
-            let log = LOGGER.clone();
+            //let log = LOGGER.clone();
             let config = get_settings(path.clone())
                 .with_context(|| format!("Failed to read configuration settings from {:?}", path));
 
@@ -20,7 +20,7 @@ pub fn poll(config: &MonitorSettings) {
                 .await
                 .with_context(|| "fetching error");
             info!(
-                log,
+            
                 "fetching data every {:?} seconds...", &result.polling_rate
             );
             // println!("{:?}", utils::get::<String>("foo"));

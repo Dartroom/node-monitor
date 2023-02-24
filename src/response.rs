@@ -6,31 +6,39 @@ use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer, Resp
 use anyhow::Result;
 use slog::Logger;
 #[get("/health")]
-
 pub async fn get_health(
-    log: web::Data<Logger>,
+    //log: web::Data<Logger>,
     config: web::Data<MonitorSettings>,
-    dir_arg: Option<String>,
+    dir_arg: web::Data<Option<String>>,
 ) -> impl Responder {
     use Status::*;
     //info!(log, "{config:#?}");
     // read the rest
-    //let path = dir_arg.as_ref();
-    let payload = load_from_store(dir_arg).unwrap();
+    let path = dir_arg.into_inner();
+    let dir_path = path.as_deref().unwrap_or("");
+    let path_dir = if dir_path.is_empty() {
+        None
+    } else {
+        Some(dir_path.to_string())
+    };
+      //println!( "{:?}", path_dir );
+
+    let payload = load_from_store(path_dir).unwrap();
+     //println!( "{:?}", payload);
     // get the status
     match payload.status {
         Synced => {
-            info!(log, " local node is synced");
+            info!( " local node is synced");
             HttpResponse::Ok().json(payload)
         }
         Stopped => {
-            info!(log, " local node is stopped syncing ");
+            info!( " local node is stopped syncing ");
             // return statusCode of 503
 
             HttpResponse::ServiceUnavailable().json(payload)
         }
         CatchingUp => {
-            info!(log, " local node is caught up");
+            info!( " local node is caught up");
             HttpResponse::ServiceUnavailable().json(payload)
         }
     }

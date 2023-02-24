@@ -1,5 +1,8 @@
 #![allow(dead_code, unused, non_snake_case)]
-use actix_web::{web, App, HttpServer};
+use actix_web::{
+    middleware::{Compress, Logger},
+    web, App, HttpServer,
+};
 mod logger;
 mod polling;
 mod utils;
@@ -18,8 +21,11 @@ extern crate lazy_static;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "debug");
+    env_logger::init();
+    //env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
     // println!("{:?}", args);
-    let log = LOGGER.clone();
+    //let log = LOGGER.clone();
 
     //println!("{:#?}", &path);
     let c = utils::get_settings(ARGS.clone().config);
@@ -28,7 +34,7 @@ async fn main() -> std::io::Result<()> {
         let err = c.unwrap_err();
 
         //eprintln!("{:?}", err.source());
-        eprint!("{:?}", err);
+        error!("{:?}", err);
         Ok(())
     } else {
         let config = c.unwrap();
@@ -37,12 +43,16 @@ async fn main() -> std::io::Result<()> {
         // polling  for config.polling_rate
         poll(&config);
 
-        info!(log, "Starting the server at http://127.0.0.1:{port}/health");
+        info!("Starting the server at http://127.0.0.1:{port}/health");
+        let dir_path = ARGS.clone().data_dir;
+        //info!("{dir_path:?}");
+        //let log = logger::configure_log();
         HttpServer::new(move || {
             App::new()
-                .app_data(LOGGER.clone())
+                //.app_data(web::Data::new(log.clone()))
                 .app_data(web::Data::new(config.clone()))
-                .app_data(ARGS.clone().data_dir)
+                .app_data(web::Data::new(dir_path.clone()))
+                .wrap(Logger::default())
                 .service(get_health)
         })
         .bind(("127.0.0.1", port as u16))?

@@ -153,15 +153,15 @@ pub async fn fetch_data(
     if let Some(node) = most_update_node {
         if node.is_ok() {
             let d = node.unwrap();
-            info!(LOGGER, "fetching from remote active remote");
+            info!("fetching from remote active remote");
             //let remote: NodeResponse = get_data(&, &client).await?;
-            info!(LOGGER, "fetching from local node: {}", settings.local_node);
+            info!( "fetching from local node: {}", settings.local_node);
 
             let local = match get_data(&settings.local_node, &client).await {
                 Ok(local) => local,
                 Err(e) => {
                     warn!(
-                        LOGGER,
+                        
                         "Failed to fetch from local node: {}, status changing", settings.local_node
                     );
                     // error, update the setting to stopped;
@@ -223,7 +223,7 @@ pub fn save_data(
     let data_file_exists = Path::new(&file_path).exists();
 
     if (!data_file_exists) {
-        info!(LOGGER, "no data.json file, creating one");
+        info!( "no data.json file, creating one");
         let mut f = fs::File::create(&file_path)?;
         serde_json::to_writer_pretty(f, &Payload::default())?;
     }
