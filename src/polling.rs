@@ -7,7 +7,7 @@ pub fn poll(config: &MonitorSettings) {
     set_interval(
         move || async {
             // send a request to our node to check status;
-            // Check the last round value to see if it increased;
+            /// Check the last round value to see if it increased;
             let args = ARGS.clone();
             let path = args.config;
             //let log = LOGGER.clone();
