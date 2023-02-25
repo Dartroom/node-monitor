@@ -12,7 +12,7 @@ This is simple program that monitors the state of a local node and reports wheth
 1.   Building from Source
 
      -    Clone this repository
-     -    Bulid binary new using ``cargo build  --release`
+     -    Bulid binary new using ```cargo build  --release ```
      -    To build a static binary instead use the following commands below:<br>
           **windows:** use `cargo build --release --target x86_64-pc-windows-msvc`. <br>
           **linux:** use ` cargo build --release --target x86_64-unknown-linux-musl`.
