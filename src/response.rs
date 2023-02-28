@@ -38,7 +38,7 @@ pub async fn get_health(
             HttpResponse::ServiceUnavailable().json(payload)
         }
         CatchingUp => {
-            info!( " local node is caught up");
+            info!( " local node is caughing up");
             HttpResponse::ServiceUnavailable().json(payload)
         }
     }

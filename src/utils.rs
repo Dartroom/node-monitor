@@ -299,20 +299,12 @@ pub fn save_data(
         //store.status = Status::Stopped;
 
         let offset = remote_res.last_round - resp.last_round;
-        if remote_res.last_round == resp.last_round {
-            debug!(
-                "remote {} == local {}",
-                resp.last_round, remote_res.last_round
+ debug!(
+                "remote {} == local {}  store {} ,  offset={offset}",
+                resp.last_round, remote_res.last_round, store.local_last_round,
             );
-            store.status = Status::Synced;
-            store.offset = offset;
-            store.time_stamp = None;
-            store.remote_last_round = remote_res.last_round;
-            store.time_since_last = resp.time_since_last_round;
-            // store.remote_last_round = remote_res.last_round;
-            update_store(&store, file_path.clone())?;
-        }
-        if (resp.last_round > store.local_last_round && local_connection) {
+
+          if (remote_res.last_round > store.local_last_round ||resp.last_round>store.local_last_round) && local_connection && offset > global.valid_round_range {
             store.status = Status::CatchingUp;
             store.offset = remote_res.last_round - resp.last_round;
             //let time = Utc::now();
@@ -322,8 +314,23 @@ pub fn save_data(
             store.time_since_last = resp.time_since_last_round;
             store.remote_last_round = remote_res.last_round;
 
+            update_store(&store, file_path.clone())?;
+        }
+        if remote_res.last_round == resp.last_round && offset ==0 {
+            debug!(
+                "remote {} == local {}",
+                resp.last_round, remote_res.last_round
+            );
+            store.status = Status::Synced;
+            store.offset = offset;
+            store.time_stamp = None;
+            store.remote_last_round = remote_res.last_round;
+            store.time_since_last = resp.time_since_last_round;
+            store.local_last_round = resp.last_round;
+            // store.remote_last_round = remote_res.last_round;
             update_store(&store, file_path)?;
         }
+      
 
         // update the data file
         //let now = time::Instant::now();
