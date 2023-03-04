@@ -345,12 +345,23 @@ pub fn save_data(
 // load the data from store;
 pub fn load_from_store(dir: Option<String>) -> Result<Payload> {
     // if directory path it p
+    use std::fs;
+    use std::path::Path;
 
     let file_path = if let Some(right) = dir {
         format!("{right}/{}", "data.json")
     } else {
         "data.json".to_string()
     };
+
+    let data_file_exists = Path::new(&file_path).exists();
+
+    if (!data_file_exists) {
+        info!("no data.json file, creating one");
+        let mut f = fs::File::create(&file_path)?;
+        serde_json::to_writer_pretty(f, &Payload::default())?;
+    }
+
     //println!("Loading data from:{file_path}");
     let settings = Config::builder()
         .add_source(File::with_name(&file_path))
