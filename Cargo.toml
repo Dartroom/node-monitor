@@ -1,6 +1,6 @@
 [package]
 name = "node-monitor"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "A simple program that monitors the state of a ipfs node. Node is either synced, catching up or has stopped syncing."
 authors = ["Spencer <spencer@dartroom.xyz>"]
