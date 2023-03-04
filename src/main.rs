@@ -54,7 +54,8 @@ async fn main() -> std::io::Result<()> {
         //let now: Mutex<Instant> = Mutex::new(Instant::now());
         let port = config.port;
         // polling  for config.polling_rate
-        poll(&config);
+        poll(&config).await;
+       
 
         info!("Starting the server at http://127.0.0.1:{port}/health");
         let dir_path = ARGS.clone().data_dir;
@@ -66,10 +67,39 @@ async fn main() -> std::io::Result<()> {
                 .app_data(web::Data::new(config.clone()))
                 .app_data(web::Data::new(dir_path.clone()))
                 .wrap(Logger::default())
-                .service(get_health)
+                .route("/health", web::get().to(get_health))
         })
         .bind(("127.0.0.1", port))?
         .run()
         .await
     }
 }
+
+// add test for the health route; let result: Person = test::read_body_json(res).await
+ 
+#[cfg(test)]
+
+ mod tests {
+    use super::*;
+    use actix_web::{
+        http::{self, header::{ContentType,self}},
+        test, Responder
+    };
+
+    #[actix_web::test]
+    async fn  health_route_returns_json ()  {
+        let req = test::TestRequest::get().uri("/heath")
+        //.insert_header(ContentType::json())
+        
+        .to_http_request();
+        let path  = None;
+        
+         //panic!(" noo");
+        let resp = get_health(web::Data::new(path)).await.respond_to(&req);
+        //println!("{:?}",resp);
+         
+        assert_eq!(resp.status(), http::StatusCode::OK);
+        assert_eq!(resp.headers().get(header::CONTENT_TYPE).unwrap(),ContentType::json().essence_str());
+    }
+
+ }

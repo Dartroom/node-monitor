@@ -5,10 +5,11 @@ use crate::utils::*;
 use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use anyhow::Result;
 use slog::Logger;
-#[get("/health")]
+
 pub async fn get_health(
     //log: web::Data<Logger>,
-    config: web::Data<MonitorSettings>,
+    //config: web::Data<MonitorSettings>,
+    //_resp: HttpRequest,
     dir_arg: web::Data<Option<String>>,
 ) -> impl Responder {
     use Status::*;

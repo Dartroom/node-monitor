@@ -104,7 +104,7 @@ pub fn get_settings(path: Option<String>) -> anyhow::Result<MonitorSettings> {
     Ok(result)
 }
 
-pub fn set_interval<F, Fut>(f: F, dur: Duration)
+pub  async fn set_interval<F, Fut>(f: F, dur: Duration)
 where
     F: Send + 'static + Fn() -> Fut,
     Fut: Future<Output = ()> + Send + 'static,
@@ -119,6 +119,7 @@ where
             // Wait until next tick:
             interval.tick().await;
             // Spawn a task for the operation.
+            
             tokio::spawn(f());
         }
     });
