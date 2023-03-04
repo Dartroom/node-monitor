@@ -1,4 +1,5 @@
 ### node-monitor
+[![.github/workflows/rust.yml](https://github.com/Dartroom/node-monitor/actions/workflows/rust.yml/badge.svg)](https://github.com/Dartroom/node-monitor/actions/workflows/rust.yml)
 
 This is simple program that monitors the state of a local node and reports whether it's synced, catching up or has stopped syncing.
 
