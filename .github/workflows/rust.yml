@@ -1,7 +1,8 @@
 name: Rust
 
 on:
-  push:["all"]
+  push:
+     branches: ["all"]
   pull_request:
     branches: [ "main" ]
 
