@@ -3,7 +3,7 @@ use crate::logger::*;
 use crate::utils::*;
 use crate::utils::*;
 use anyhow::*;
-pub fn poll(config: &MonitorSettings) {
+pub  async fn poll(config: &MonitorSettings) {
     set_interval(
         move || async {
             // send a request to our node to check status;
@@ -12,7 +12,7 @@ pub fn poll(config: &MonitorSettings) {
             let path = args.config;
             //let log = LOGGER.clone();
             let config = get_settings(path.clone())
-                .with_context(|| format!("Failed to read configuration settings from {:?}", path));
+                .with_context(|| format!("Failed to read configuration settings from {path:?}"));
 
             //let n =  now.lock();
             let result = config.unwrap();
@@ -26,5 +26,5 @@ pub fn poll(config: &MonitorSettings) {
             // println!("{:?}", utils::get::<String>("foo"));
         },
         std::time::Duration::from_secs(config.polling_rate),
-    );
+    ).await
 }
